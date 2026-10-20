@@ -1,5 +1,12 @@
 # Atualizacoes
 
+## Versao 0.1.9
+
+O instalador do Windows agora localiza automaticamente o Python 3.12 quando o
+instalador oficial retorna codigo zero, mas escolhe a pasta padrao do usuario
+em vez do diretorio portatil solicitado. A criacao do ambiente virtual tambem
+e validada antes de continuar.
+
 ## Versao 0.1.8
 
 O instalador apaga cada pacote temporario de audio assim que termina de

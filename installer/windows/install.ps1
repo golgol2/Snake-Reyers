@@ -198,6 +198,67 @@ function Invoke-PipInstall {
     }
 }
 
+function Test-Python312 {
+    param([string]$Executable)
+
+    if (-not $Executable -or -not (Test-Path $Executable -PathType Leaf)) {
+        return $false
+    }
+
+    try {
+        $Version = & $Executable -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')" 2>$null
+        return (
+            $LASTEXITCODE -eq 0 -and
+            ([string]$Version).Trim() -eq "3.12"
+        )
+    } catch {
+        return $false
+    }
+}
+
+function Find-Python312 {
+    param([string]$PreferredPath)
+
+    $Candidates = [System.Collections.Generic.List[string]]::new()
+    if ($PreferredPath) {
+        $Candidates.Add($PreferredPath)
+    }
+    if ($env:LocalAppData) {
+        $Candidates.Add((Join-Path $env:LocalAppData "Programs\Python\Python312\python.exe"))
+    }
+    if ($env:ProgramFiles) {
+        $Candidates.Add((Join-Path $env:ProgramFiles "Python312\python.exe"))
+    }
+
+    foreach ($RegistryPath in @(
+        "HKCU:\Software\Python\PythonCore\3.12\InstallPath",
+        "HKLM:\Software\Python\PythonCore\3.12\InstallPath",
+        "HKLM:\Software\WOW6432Node\Python\PythonCore\3.12\InstallPath"
+    )) {
+        try {
+            $RegistryKey = Get-Item -Path $RegistryPath -ErrorAction Stop
+            $InstallPath = [string]$RegistryKey.GetValue("")
+            $ExecutablePath = [string]$RegistryKey.GetValue("ExecutablePath")
+            if ($ExecutablePath) {
+                $Candidates.Add($ExecutablePath)
+            }
+            if ($InstallPath) {
+                $Candidates.Add((Join-Path $InstallPath "python.exe"))
+            }
+        } catch {
+            # Registro ausente nesta instalacao do Windows.
+        }
+    }
+
+    foreach ($Candidate in ($Candidates | Select-Object -Unique)) {
+        if (Test-Python312 -Executable $Candidate) {
+            return $Candidate
+        }
+    }
+
+    return ""
+}
+
 function Install-AudioPackages {
     $ManifestPath = Join-Path $ServerDir "assets\audio-manifest.json"
     if (-not (Test-Path $ManifestPath)) {
@@ -291,8 +352,9 @@ if ($RepairDistributionOnly) {
     exit 0
 }
 
-$PythonExe = Join-Path $PythonRuntime "python.exe"
-if (-not (Test-Path $PythonExe)) {
+$PortablePythonExe = Join-Path $PythonRuntime "python.exe"
+$PythonExe = Find-Python312 -PreferredPath $PortablePythonExe
+if (-not $PythonExe) {
     $PythonInstaller = Join-Path $DownloadDir "python-3.12.10-amd64.exe"
     Get-VerifiedDownload -Url $PythonUrl -Destination $PythonInstaller -Sha256 $PythonSha256
     New-Item -ItemType Directory -Force -Path $PythonRuntime | Out-Null
@@ -307,8 +369,17 @@ if (-not (Test-Path $PythonExe)) {
         "PrependPath=0",
         "TargetDir=`"$PythonRuntime`""
     )
-    if ($PythonInstall.ExitCode -ne 0 -or -not (Test-Path $PythonExe)) {
-        throw "Nao foi possivel instalar o Python portatil. Codigo: $($PythonInstall.ExitCode)"
+    if ($PythonInstall.ExitCode -ne 0) {
+        throw "O instalador do Python falhou. Codigo: $($PythonInstall.ExitCode)"
+    }
+
+    $PythonExe = Find-Python312 -PreferredPath $PortablePythonExe
+    if (-not $PythonExe) {
+        throw "O instalador do Python terminou com codigo 0, mas o Python 3.12 nao foi localizado. Verifique o antivirus e os aplicativos instalados do Windows."
+    }
+
+    if ($PythonExe -ne $PortablePythonExe) {
+        Write-Host "Python 3.12 localizado em: $PythonExe"
     }
 }
 
@@ -355,6 +426,9 @@ $VenvDir = Join-Path $ServerDir ".venv"
 $Python = Join-Path $VenvDir "Scripts\python.exe"
 if (-not (Test-Path $Python)) {
     & $PythonExe -m venv $VenvDir
+    if ($LASTEXITCODE -ne 0 -or -not (Test-Path $Python -PathType Leaf)) {
+        throw "Nao foi possivel criar o ambiente Python do Snake Reyers."
+    }
 }
 
 Invoke-PipInstall -Arguments @("--upgrade", "pip")
