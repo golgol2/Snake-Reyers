@@ -1,5 +1,13 @@
 # Atualizacoes
 
+## Versao 0.1.8
+
+O instalador apaga cada pacote temporario de audio assim que termina de
+extrai-lo. Isso reduz em varios gigabytes o espaco temporario necessario e
+evita o erro `curl (23) Failure writing output to destination` causado por
+disco cheio. Antes de baixar e extrair, ele tambem informa claramente quanto
+espaco ainda e necessario.
+
 ## Versao 0.1.7
 
 O monitor agora reconhece os limites de conexao da Euler Stream e aguarda o

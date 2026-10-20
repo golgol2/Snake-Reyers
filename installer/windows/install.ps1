@@ -28,7 +28,8 @@ function Get-VerifiedDownload {
     param(
         [Parameter(Mandatory = $true)][string]$Url,
         [Parameter(Mandatory = $true)][string]$Destination,
-        [Parameter(Mandatory = $true)][string]$Sha256
+        [Parameter(Mandatory = $true)][string]$Sha256,
+        [long]$ExpectedBytes = 0
     )
 
     New-Item -ItemType Directory -Force -Path (Split-Path $Destination -Parent) | Out-Null
@@ -48,6 +49,17 @@ function Get-VerifiedDownload {
         }
 
         try {
+            if ($ExpectedBytes -gt 0) {
+                $DownloadRoot = [IO.Path]::GetPathRoot([IO.Path]::GetFullPath($Temporary))
+                $DownloadDrive = [IO.DriveInfo]::new($DownloadRoot)
+                $RequiredBytes = $ExpectedBytes + 536870912
+                if ($DownloadDrive.AvailableFreeSpace -lt $RequiredBytes) {
+                    $FreeGb = [Math]::Round($DownloadDrive.AvailableFreeSpace / 1GB, 1)
+                    $RequiredGb = [Math]::Round($RequiredBytes / 1GB, 1)
+                    throw "Espaco insuficiente em $DownloadRoot. Livre: $FreeGb GB; necessario agora: $RequiredGb GB."
+                }
+            }
+
             Write-Host "Baixando $([IO.Path]::GetFileName($Destination)) (tentativa $Attempt de 4)..."
             if ($Curl) {
                 & $Curl.Source `
@@ -62,6 +74,9 @@ function Get-VerifiedDownload {
                     --output $Temporary `
                     $Url
                 if ($LASTEXITCODE -ne 0) {
+                    if ($LASTEXITCODE -eq 23) {
+                        throw "O Windows nao conseguiu gravar o download. Verifique o espaco livre e se o antivirus bloqueou a pasta temporaria."
+                    }
                     throw "curl.exe terminou com o codigo $LASTEXITCODE"
                 }
             } else {
@@ -81,6 +96,11 @@ function Get-VerifiedDownload {
         } catch {
             if (Test-Path $Temporary) {
                 Remove-Item -Force $Temporary
+            }
+            if (
+                $_.Exception.Message -match "Espaco insuficiente|nao conseguiu gravar"
+            ) {
+                throw $_.Exception.Message
             }
             if ($Attempt -eq 4) {
                 throw "Falha ao baixar ou validar $Url depois de 4 tentativas: $($_.Exception.Message)"
@@ -207,6 +227,7 @@ function Install-AudioPackages {
     foreach ($Pack in $Manifest.packs) {
         $PackName = [string]$Pack.name
         $PackHash = ([string]$Pack.sha256).ToLowerInvariant()
+        $PackBytes = [long]($Pack.bytes)
         $Candidates = @(
             (Join-Path (Split-Path $RootDir -Parent) $PackName),
             (Join-Path $RootDir $PackName),
@@ -214,9 +235,15 @@ function Install-AudioPackages {
         )
         $Archive = $Candidates | Where-Object { Test-Path $_ } | Select-Object -First 1
 
+        $DownloadedArchive = $false
         if (-not $Archive) {
             $Archive = Join-Path $DownloadDir $PackName
-            Get-VerifiedDownload -Url ([string]$Pack.url) -Destination $Archive -Sha256 $PackHash
+            $DownloadedArchive = $true
+            Get-VerifiedDownload `
+                -Url ([string]$Pack.url) `
+                -Destination $Archive `
+                -Sha256 $PackHash `
+                -ExpectedBytes $PackBytes
         } else {
             $ActualHash = (Get-FileHash -Algorithm SHA256 -Path $Archive).Hash.ToLowerInvariant()
             if ($ActualHash -ne $PackHash) {
@@ -225,7 +252,32 @@ function Install-AudioPackages {
         }
 
         Write-Host "Instalando $PackName..."
-        Expand-Archive -Force -Path $Archive -DestinationPath $RootDir
+        try {
+            Add-Type -AssemblyName System.IO.Compression.FileSystem
+            $Zip = [IO.Compression.ZipFile]::OpenRead($Archive)
+            try {
+                $ExpandedBytes = [long](
+                    ($Zip.Entries | Measure-Object -Property Length -Sum).Sum
+                )
+            } finally {
+                $Zip.Dispose()
+            }
+
+            $InstallRoot = [IO.Path]::GetPathRoot([IO.Path]::GetFullPath($RootDir))
+            $InstallDrive = [IO.DriveInfo]::new($InstallRoot)
+            $RequiredInstallBytes = $ExpandedBytes + 536870912
+            if ($InstallDrive.AvailableFreeSpace -lt $RequiredInstallBytes) {
+                $FreeGb = [Math]::Round($InstallDrive.AvailableFreeSpace / 1GB, 1)
+                $RequiredGb = [Math]::Round($RequiredInstallBytes / 1GB, 1)
+                throw "Espaco insuficiente para extrair $PackName em $InstallRoot. Livre: $FreeGb GB; necessario agora: $RequiredGb GB."
+            }
+
+            Expand-Archive -Force -Path $Archive -DestinationPath $RootDir
+        } finally {
+            if ($DownloadedArchive -and (Test-Path $Archive)) {
+                Remove-Item -Force $Archive
+            }
+        }
     }
 
     Set-Content -Encoding ASCII -NoNewline -Path $MarkerPath -Value $ManifestHash

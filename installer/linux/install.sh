@@ -76,6 +76,7 @@ install_audio_packages() {
 import hashlib
 import json
 import os
+import shutil
 import sys
 import urllib.request
 import zipfile
@@ -91,7 +92,16 @@ for pack in manifest["packs"]:
     expected = pack["sha256"].lower()
     candidates = (root.parent / name, root / name, root / "packages" / name)
     archive = next((path for path in candidates if path.is_file()), download_dir / name)
+    downloaded_archive = archive.parent == download_dir
     if not archive.is_file():
+        required = int(pack.get("bytes") or 0) + 512 * 1024 * 1024
+        free = shutil.disk_usage(download_dir).free
+        if required > 0 and free < required:
+            raise SystemExit(
+                f"Espaco insuficiente para baixar {name}: "
+                f"{free / 1024**3:.1f} GB livres; "
+                f"{required / 1024**3:.1f} GB necessarios agora."
+            )
         print(f"Baixando {name}...")
         urllib.request.urlretrieve(pack["url"], archive)
     hasher = hashlib.sha256()
@@ -102,8 +112,21 @@ for pack in manifest["packs"]:
     if digest != expected:
         raise SystemExit(f"Pacote de audio invalido: {archive}")
     print(f"Instalando {name}...")
-    with zipfile.ZipFile(archive) as package:
-        package.extractall(root)
+    try:
+        with zipfile.ZipFile(archive) as package:
+            expanded = sum(item.file_size for item in package.infolist())
+            free = shutil.disk_usage(root).free
+            required = expanded + 512 * 1024 * 1024
+            if free < required:
+                raise SystemExit(
+                    f"Espaco insuficiente para extrair {name}: "
+                    f"{free / 1024**3:.1f} GB livres; "
+                    f"{required / 1024**3:.1f} GB necessarios agora."
+                )
+            package.extractall(root)
+    finally:
+        if downloaded_archive:
+            archive.unlink(missing_ok=True)
 PY
 	printf '%s' "${manifest_hash}" >"${marker}"
 }
