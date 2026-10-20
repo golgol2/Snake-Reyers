@@ -1,5 +1,13 @@
 # Atualizacoes
 
+## Versao 0.1.10
+
+Corrige a cantoria acionada por presentes nas instalacoes Windows. O servidor
+agora encontra as musicas instaladas nas subpastas de
+`server/assets/singing/processed/FANCLUB`, mantendo compatibilidade com o
+formato anterior. Os pacotes de audio existentes sao preservados e nao
+precisam ser baixados novamente.
+
 ## Versao 0.1.9
 
 O instalador do Windows agora localiza automaticamente o Python 3.12 quando o

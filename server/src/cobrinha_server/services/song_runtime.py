@@ -273,19 +273,27 @@ def processed_songs() -> list[dict[str, Any]]:
     _ensure_dirs()
 
     result: list[dict[str, Any]] = []
+    seen_song_ids: set[str] = set()
 
     for manifest_path in sorted(
-        SONG_PROCESSED_DIR.glob(
-            "*/manifest.json"
+        SONG_PROCESSED_DIR.rglob("manifest.json"),
+        key=lambda item: (
+            len(item.relative_to(SONG_PROCESSED_DIR).parts),
+            item.relative_to(SONG_PROCESSED_DIR).as_posix().casefold(),
         ),
-        key=lambda item:
-            item.parent.name.casefold(),
     ):
         song = _processed_song_from_manifest(
             manifest_path
         )
 
         if song is not None:
+            song_id = str(
+                song.get("id")
+                or manifest_path.parent.name
+            ).strip()
+            if not song_id or song_id in seen_song_ids:
+                continue
+            seen_song_ids.add(song_id)
             result.append(song)
 
     return result
@@ -2196,6 +2204,22 @@ def _song_by_id(
             clean_song_id
         )
     )
+
+    if (
+        song is None
+        or not song.get("ready")
+    ):
+        song = next(
+            (
+                candidate
+                for candidate in processed_songs()
+                if _safe_slug(
+                    str(candidate.get("id") or "")
+                ) == clean_song_id
+                and candidate.get("ready")
+            ),
+            None,
+        )
 
     if (
         song is None

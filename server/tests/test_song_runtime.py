@@ -196,6 +196,44 @@ def test_processed_song_uses_local_files_when_manifest_paths_are_stale(
     assert song["files"]["vocal"] == str((song_dir / "vocals.wav").resolve())
 
 
+def test_gift_song_is_found_inside_windows_fanclub_folder(
+    monkeypatch,
+    tmp_path,
+):
+    _setup_song_runtime(monkeypatch, tmp_path)
+    processed_dir = song_runtime.SONG_PROCESSED_DIR
+    gift_map = song_runtime.SONG_GIFT_MAP_FILE
+    _add_processed_song(
+        processed_dir / "FANCLUB",
+        "heart-me-08",
+        "Heart Me 08",
+    )
+    gift_map.write_text(
+        json.dumps(
+            {
+                "version": 2,
+                "mappings": {
+                    "heart-me": {
+                        "song_id": "heart-me-08",
+                        "song_ids": ["heart-me-08"],
+                        "initial_count": 1,
+                        "repeat_count": 1,
+                    }
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    result = song_runtime.song_trigger_for_gift_event(
+        _gift_event("Heart Me", 1)
+    )
+
+    assert result["should_play"] is True
+    assert result["song_id"] == "heart-me-08"
+    assert result["song"]["ready"] is True
+
+
 def test_large_first_gift_triggers_once_and_drops_excess(monkeypatch, tmp_path):
     gift_progress = _setup_song_runtime(monkeypatch, tmp_path)
 
