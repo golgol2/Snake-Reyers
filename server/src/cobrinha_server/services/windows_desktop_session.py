@@ -9,7 +9,7 @@ from typing import Any
 
 from cobrinha_server.bridge.godot_bridge import godot_bridge
 from cobrinha_server.core.settings import LOGS_DIR
-from cobrinha_server.services import tiktok_monitor
+from cobrinha_server.services import maintenance_mode, tiktok_monitor
 from cobrinha_server.services.session_executor_plan import (
     build_game_plan,
     preferred_live_executable,
@@ -82,6 +82,9 @@ def start(
     monitor_server: str,
 ) -> dict[str, Any]:
     global _PROCESS
+
+    if maintenance_mode.status()["enabled"]:
+        return maintenance_mode.blocked_result()
 
     if os.name != "nt":
         return {

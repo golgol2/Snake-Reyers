@@ -46,6 +46,19 @@ body {
 .topbar strong { display: block; font-size: 21px; letter-spacing: 0.04em; }
 .topbar span { color: var(--muted); font-size: 13px; }
 .topbar nav { display: flex; gap: 10px; flex-wrap: wrap; }
+.maintenance-lock {
+  display: grid;
+  gap: 7px;
+  margin-top: 14px;
+  padding: 18px 20px;
+  border: 2px solid #f5bf42;
+  border-radius: 8px;
+  background: #281d08;
+  color: #fff4cc;
+}
+.maintenance-lock strong { color: #f5bf42; font-size: 22px; }
+.maintenance-lock span { font-size: 15px; }
+.maintenance-lock small { color: #d8c896; }
 a, button {
   border: 1px solid var(--line);
   border-radius: 12px;

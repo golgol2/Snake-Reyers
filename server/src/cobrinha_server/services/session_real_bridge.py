@@ -32,6 +32,7 @@ from cobrinha_server.core.settings import (
     RUNS_DIR,
 )
 from cobrinha_server.services import (
+    maintenance_mode,
     music_runtime,
     runtime_cleanup,
     song_runtime,
@@ -1372,6 +1373,9 @@ def begin_real_session(
     game: str,
     audience_type: str,
 ) -> dict[str, Any]:
+    if maintenance_mode.status()["enabled"]:
+        return maintenance_mode.blocked_result()
+
     if not _SESSION_OPERATION_LOCK.acquire(
         blocking=False
     ):

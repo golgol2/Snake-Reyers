@@ -37,6 +37,7 @@ from cobrinha_server.services.session_executor_plan import (
     preferred_live_executable,
 )
 from cobrinha_server.services import (
+    maintenance_mode,
     windows_desktop_session,
 )
 
@@ -69,6 +70,7 @@ def api_session_status() -> JSONResponse:
     return JSONResponse(
         {
             "ok": True,
+            "maintenance": maintenance_mode.status(),
             "session": session_state,
             "schedule":
                 session_schedule_status(),
@@ -240,6 +242,12 @@ async def api_session_plan(
 async def api_session_start(
     request: Request,
 ) -> JSONResponse:
+    if maintenance_mode.status()["enabled"]:
+        return JSONResponse(
+            maintenance_mode.blocked_result(),
+            status_code=503,
+        )
+
     try:
         payload: Any = (
             await request.json()

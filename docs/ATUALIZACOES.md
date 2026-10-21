@@ -1,5 +1,12 @@
 # Atualizacoes
 
+## Versão 0.1.11
+
+- Ativa temporariamente o modo de manutenção.
+- Exibe o aviso oficial depois do splash do jogo.
+- Bloqueia o início manual e agendado de novas lives.
+- Mantém o atualizador disponível para receber a próxima versão oficial.
+
 ## Versao 0.1.10
 
 Corrige a cantoria acionada por presentes nas instalacoes Windows. O servidor

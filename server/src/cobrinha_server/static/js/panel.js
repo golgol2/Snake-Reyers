@@ -2611,14 +2611,21 @@ async function refreshSessionControl() {
   const running =
     sessionIsActuallyRunning(payload);
 
+  const maintenance =
+    Boolean(payload?.maintenance?.enabled);
+
   const top =
     $("liveToggleTop");
 
   if (top) {
     top.textContent =
-      running
+      maintenance
+        ? "Sistema em manutenção"
+        : running
         ? "Parar live"
         : "Iniciar live";
+
+    top.disabled = maintenance;
 
     top.classList.toggle(
       "running",
@@ -2634,7 +2641,14 @@ async function refreshSessionControl() {
 
   if (startButton) {
     startButton.disabled =
-      running;
+      running || maintenance;
+  }
+
+  const scheduledStartButton =
+    $("saveScheduleAndStart");
+
+  if (scheduledStartButton) {
+    scheduledStartButton.disabled = maintenance;
   }
 
   if (stopButton) {

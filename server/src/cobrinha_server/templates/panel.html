@@ -15,7 +15,7 @@
       </div>
 
       <nav>
-        <button id="liveToggleTop" class="live-toggle" type="button">
+        <button id="liveToggleTop" class="live-toggle" type="button"{% if maintenance.enabled %} disabled{% endif %}>
           Iniciar live
         </button>
         <button id="openScheduleModal" type="button">
@@ -31,6 +31,14 @@
       </nav>
     </header>
 
+    {% if maintenance.enabled %}
+    <section class="maintenance-lock" role="alert">
+      <strong>{{ maintenance.title }}</strong>
+      <span>{{ maintenance.message }}</span>
+      <small>Nenhuma live poderá ser iniciada até a próxima atualização oficial.</small>
+    </section>
+    {% endif %}
+
     <section class="card" style="margin-top:14px">
       <h2>Controle principal da live</h2>
       <p>
@@ -44,7 +52,7 @@
           Verificar sequência
         </button>
 
-        <button id="sessionStart" class="live-toggle" type="button">
+        <button id="sessionStart" class="live-toggle" type="button"{% if maintenance.enabled %} disabled{% endif %}>
           Iniciar live
         </button>
 
@@ -616,7 +624,7 @@
 
       <footer class="modal-actions">
         <button id="saveScheduleConfig" type="button">Salvar programação</button>
-        <button id="saveScheduleAndStart" type="button">Salvar e iniciar agora</button>
+        <button id="saveScheduleAndStart" type="button"{% if maintenance.enabled %} disabled{% endif %}>Salvar e iniciar agora</button>
       </footer>
 
       <pre id="scheduleStatus">Carregando...</pre>

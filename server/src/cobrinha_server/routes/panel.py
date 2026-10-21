@@ -24,6 +24,7 @@ from cobrinha_server.core.settings import (
 )
 from cobrinha_server.services import (
     content_updates,
+    maintenance_mode,
     music_runtime,
     runtime_cleanup,
     song_runtime,
@@ -247,7 +248,7 @@ def panel(
     return templates.TemplateResponse(
         request=request,
         name="panel.html",
-        context={},
+        context={"maintenance": maintenance_mode.status()},
     )
 
 

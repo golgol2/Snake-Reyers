@@ -26,6 +26,7 @@ from cobrinha_server.services.session_real_bridge import (
     public_status as real_bridge_status,
     stop_real_session,
 )
+from cobrinha_server.services import maintenance_mode
 
 
 STATUS_FILE = RUNS_DIR / "session_scheduler_status.json"
@@ -112,6 +113,20 @@ def run_check_once() -> dict[str, Any]:
     global _scheduled_at
     global _config_signature
     global _running_generation
+
+    maintenance = maintenance_mode.status()
+    if maintenance["enabled"]:
+        _scheduled_action = ""
+        _scheduled_at = 0.0
+        return _write_status(
+            {
+                "state": "maintenance",
+                "enabled": False,
+                "live_running": _session_running(session_status()),
+                "message": maintenance["message"],
+                "updated_at": time.time(),
+            }
+        )
 
     now = time.time()
     config = load_config()
